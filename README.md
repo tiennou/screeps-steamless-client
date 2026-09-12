@@ -123,6 +123,7 @@ All of the command line arguments are optional.
 - `--server_list` &mdash; Path to a custom server list json config file.
 - `--beautify` &mdash; Formats .js files loaded in the client for debugging.
 - `--guest` &mdash; Enable guest mode for xxscreeps.
+- `--steam` &mdash; Report playtime to the local Steam client. See [Steam playtime](#steam-playtime).
 - `--debug` &mdash; Display verbose errors for development.
 
 ## Examples
@@ -143,6 +144,16 @@ When running a Screeps server in a Docker container, you can configure the serve
 npx screepers-steamless-client --internal_backend http://screeps:21025
 ```
 
+### `--steam`
+
+Report playtime to the Steam client on this machine while you have the game client open:
+
+```sh
+npx screepers-steamless-client --steam
+```
+
+See [Steam playtime](#steam-playtime) for what this does and does not do.
+
 ### `--server_list`
 
 Customize your server list by copying the [server_list.json](settings/server_list.json) file and making your changes.
@@ -160,6 +171,16 @@ You can run the steamless client behind a reverse proxy (such as in a container)
 ```sh
 npx screepers-steamless-client --public_hostname screeps-client.example.com --public_port 443 --public_tls --use_subdomains
 ```
+
+## Steam playtime
+
+Steam counts hours while it thinks the official Screeps World game is running. Steamless is a browser proxy, so that does not happen — unless you opt in with `--steam`.
+
+```sh
+npx screepers-steamless-client --steam
+```
+
+This makes the proxy track whether to register played time to Steam on the **same machine** as the Node process, and credits **that** Steam account. It will not work from Docker or a remote host, and it cannot attribute hours to whoever opened the browser tab.
 
 ## Development Scripts
 

@@ -24,5 +24,9 @@ export default [
   {
     ...baseConfig,
     input: 'src/serverStatus.ts',
+  },
+  {
+    ...baseConfig,
+    input: 'src/steamPresenceWorker.ts',
   }
 ];

@@ -15,6 +15,7 @@ import { handleProxyError, handleServerError, logError } from './utils/errors.js
 import { getScreepsPath } from './utils/gamePath.js';
 import { getCommunityPages, getServerListConfig, mimeTypes } from './utils/utils.js';
 import { applyPatches, checkPatches, hasPatches, listPatches } from './patches/index.js';
+import { SteamPresence } from './utils/steamPresence.js';
 
 // Get the app directory and version
 const __filename = fileURLToPath(import.meta.url);
@@ -38,6 +39,7 @@ export interface Args {
     internal_backend?: string;
     server_list?: string;
     guest: boolean;
+    steam: boolean;
     beautify: boolean;
     debug: boolean;
     list_patches: boolean;
@@ -80,6 +82,11 @@ const argv: Args = (() => {
         )
         .option('--server_list <path>', 'Path to a custom server list json config file.')
         .option('--guest', 'Enable guest mode for xxscreeps.', false)
+        .option(
+            '--steam',
+            'Report Screeps playtime to Steam while a game client socket is connected. Steam must be running on this machine.',
+            false,
+        )
         .option('--beautify', 'Formats .js files loaded in the client for debugging.', false)
         .option(
             '--patch <patch-name>',
@@ -200,6 +207,8 @@ console.log(
 // HTTP header is only accurate to the minute
 const lastModified = stat.mtime;
 
+const steam = argv.steam ? new SteamPresence() : null;
+
 // Set up web server
 const koa = new Koa();
 const { host, port } = argv;
@@ -209,6 +218,9 @@ server.on('listening', () => {
     console.log('🌐', chalk.dim('Ready', arrow), chalk.white(hostURL));
     if (publicURL !== hostURL) {
         console.log('🌐', chalk.dim('Public', arrow), chalk.white(publicURL));
+    }
+    if (steam) {
+        console.log('🎮', chalk.dim('Steam'), chalk.gray('presence idle until a game client connects'));
     }
 });
 
@@ -329,6 +341,7 @@ koa.use((context, next) => {
         }
         // XXX: this still needs to move
         const target = getProxyTarget(backend);
+        steam?.trackEndpoint(endpoint, context.req, context.res);
         proxy.web(context.req, context.res, { target });
         return;
     }
@@ -342,6 +355,7 @@ server.on('upgrade', (req, socket, head) => {
     if (server && req.headers.upgrade?.toLowerCase() === 'websocket') {
         req.url = server.endpoint;
         const target = getProxyTarget(server.backend);
+        steam?.trackEndpoint(server.endpoint, socket);
         proxy.ws(req, socket, head, { target });
         socket.on('error', (err) => {
             if (argv.debug) logError(err);
@@ -352,7 +366,13 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 // Clean up on exit
-const cleanup = () => process.exit(1);
+const cleanup = () => {
+    steam?.stop();
+    process.exit(1);
+};
 process.on('SIGINT', cleanup);
 process.on('SIGTERM', cleanup);
-process.on('exit', () => server.close());
+process.on('exit', () => {
+    steam?.stop();
+    server.close();
+});
